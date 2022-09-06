@@ -290,7 +290,10 @@ object BlockReceiver {
           next <- state.modify(_.finished(block.blockHash, parents))
 
           // Send dependency free blocks to validation
-          _ <- next.toList.traverse_(receiverOutputQueue.enqueue1)
+          dag     <- BlockDagStorage[F].getRepresentation
+          msgs    <- next.toList.traverse(BlockStore[F].getUnsafe)
+          depFree = msgs.filter(_.justifications.forall(dag.contains)).map(_.blockHash)
+          _       <- depFree.traverse_(receiverOutputQueue.enqueue1)
         } yield ()
       }
 
